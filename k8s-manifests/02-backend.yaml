@@ -1,0 +1,98 @@
+# k8s-manifests/02-backend.yaml
+---
+# Backend ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: default
+data:
+  NODE_ENV: "production"
+  PORT: "5000"
+  ORIGIN_URI: "*"
+  COMPANY_NAME: "Inventory-Management-System"
+
+---
+# Backend Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: default
+  labels:
+    app: backend
+    tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: application
+    spec:
+      containers:
+      - name: backend
+        image: ghcr.io/aqeelsaeed/myimages/inventory-management-devops/backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: PORT
+        - name: MONGODB_URI
+          value: "mongodb://admin:admin123@mongodb-service:27017/inventaryDatabase?authSource=admin"
+        - name: ACCESS_TOKEN_SECRET
+          value: "REPLACE_IN_PIPELINE"
+        - name: REFRESH_TOKEN_SECRET
+          value: "REPLACE_IN_PIPELINE"
+        - name: MY_Gmail
+          value: "REPLACE_IN_PIPELINE"
+        - name: GMAIL_PASS
+          value: "REPLACE_IN_PIPELINE"
+        - name: COMPANY_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: COMPANY_NAME
+        - name: ORIGIN_URI
+          valueFrom:
+            configMapKeyRef:
+              name: backend-config
+              key: ORIGIN_URI
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# Backend Service (LoadBalancer - will get Public IP)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: default
+  labels:
+    app: backend
+spec:
+  type: LoadBalancer
+  selector:
+    app: backend
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+    name: http
