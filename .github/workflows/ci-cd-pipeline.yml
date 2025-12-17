@@ -187,15 +187,6 @@ jobs:
         run: |
           export KUBECONFIG=$(pwd)/kubeconfig
           
-          # Update backend image and secrets in manifest
-          sed -i "s|ghcr.io/GITHUB_USERNAME/REPO_NAME/backend:latest|${{ needs.docker-build-push.outputs.backend-image }}|g" k8s-manifests/02-backend.yaml
-          sed -i "s|REPLACE_IN_PIPELINE|${{ secrets.ACCESS_TOKEN_SECRET }}|g" k8s-manifests/02-backend.yaml
-          
-          # Replace other secrets
-          sed -i "0,/REPLACE_IN_PIPELINE/s//${{ secrets.REFRESH_TOKEN_SECRET }}/" k8s-manifests/02-backend.yaml
-          sed -i "0,/REPLACE_IN_PIPELINE/s//${{ secrets.GMAIL_USER }}/" k8s-manifests/02-backend.yaml
-          sed -i "0,/REPLACE_IN_PIPELINE/s//${{ secrets.GMAIL_PASS }}/" k8s-manifests/02-backend.yaml
-          
           echo "🚀 Deploying Backend (Application Tier)..."
           kubectl apply -f k8s-manifests/02-backend.yaml
           
@@ -232,14 +223,12 @@ jobs:
         run: |
           export KUBECONFIG=$(pwd)/kubeconfig
           
-          # Update frontend image
-          sed -i "s|ghcr.io/GITHUB_USERNAME/REPO_NAME/frontend:latest|${{ needs.docker-build-push.outputs.frontend-image }}|g" k8s-manifests/03-frontend.yaml
-          
-          # Update Backend API URL
-          sed -i "s|REPLACE_WITH_BACKEND_IP|${{ env.BACKEND_IP }}|g" k8s-manifests/03-frontend.yaml
-          
           echo "🎨 Deploying Frontend (Presentation Tier)..."
           kubectl apply -f k8s-manifests/03-frontend.yaml
+          
+          # Update Frontend environment variable with backend URL
+          kubectl set env deployment/frontend-deployment \
+            VITE_API_URL="${{ env.BACKEND_IP }}/api/v1"
           
           echo "⏳ Waiting for Frontend to be ready..."
           kubectl wait --for=condition=available --timeout=300s deployment/frontend-deployment || true
@@ -311,7 +300,7 @@ jobs:
           echo "🔗 APPLICATION ENDPOINTS:"
           echo "════════════════════════════════════════════════════"
           echo "🌐 Frontend URL: http://${{ env.FRONTEND_IP }}"
-          echo "🔧 Backend API: ${{ env.BACKEND_IP }}"
+          echo "🔧 Backend API: ${{ env.BACKEND_IP }}/api/v1"
           echo "🗄️ MongoDB: mongodb-service:27017 (internal)"
           echo ""
           echo "════════════════════════════════════════════════════"
