@@ -55,7 +55,6 @@ spec:
           name: mongodb
         env:
         - name: MONGO_INITDB_ROOT_USERNAME
-          value: "inventory"
           valueFrom:
             secretKeyRef:
               name: mongodb-secret
