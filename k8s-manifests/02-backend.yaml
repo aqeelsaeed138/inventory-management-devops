@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ghcr.io/aqeelsaeed/myimages/inventory-management-devops/backend:latest
+        image: ghcr.io/aqeelsaeed138/inventory-management-devops/backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
@@ -54,13 +54,13 @@ spec:
         - name: MONGODB_URI
           value: "mongodb://admin:admin123@mongodb-service:27017/inventaryDatabase?authSource=admin"
         - name: ACCESS_TOKEN_SECRET
-          value: "REPLACE_IN_PIPELINE"
+          value: "hfdguybv_hjkads6283gsaHJF-agdfv6"
         - name: REFRESH_TOKEN_SECRET
-          value: "REPLACE_IN_PIPELINE"
+          value: "HJAFDF67lpqbzm084-sdn-8361gKJFKN03-HZMQ"
         - name: MY_Gmail
-          value: "REPLACE_IN_PIPELINE"
+          value: "aqeelsaeed138@gmail.com"
         - name: GMAIL_PASS
-          value: "REPLACE_IN_PIPELINE"
+          value: "zkyhfyvyqwiaotzl"
         - name: COMPANY_NAME
           valueFrom:
             configMapKeyRef:
@@ -78,6 +78,17 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+        livenessProbe:
+          tcpSocket:
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+
 ---
 # Backend Service (LoadBalancer - will get Public IP)
 apiVersion: v1
