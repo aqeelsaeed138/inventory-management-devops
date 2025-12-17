@@ -35,7 +35,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ghcr.io/aqeelsaeed/myimages/inventory-management-devops/backend:latest
+        image: ghcr.io/aqeelsaeed/inventory-management-devops/backend:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
