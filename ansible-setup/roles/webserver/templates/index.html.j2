@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management - {{ ansible_hostname }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; }
+        .info { color: #7f8c8d; }
+        .success { color: #27ae60; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Webserver Configured Successfully</h1>
+        <p class="success">This server was automatically configured using Ansible!</p>
+        
+        <h2>Server Information:</h2>
+        <ul>
+            <li><strong>Hostname:</strong> {{ ansible_hostname }}</li>
+            <li><strong>Operating System:</strong> {{ ansible_distribution }} {{ ansible_distribution_version }}</li>
+            <li><strong>Architecture:</strong> {{ ansible_architecture }}</li>
+            <li><strong>IP Address:</strong> {{ ansible_default_ipv4.address | default('N/A') }}</li>
+            <li><strong>Configured by:</strong> Ansible Automation</li>
+        </ul>
+        
+        <h2>Installed Software:</h2>
+        <ul>
+            <li>Nginx Web Server</li>
+            <li>Git Version Control</li>
+            <li>Curl</li>
+            <li>Vim Editor</li>
+        </ul>
+        
+        <p class="info">Deployed on: {{ ansible_date_time.date }} at {{ ansible_date_time.time }}</p>
+    </div>
+</body>
+</html>

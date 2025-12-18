@@ -1,0 +1,12 @@
+---
+# Handlers for appserver role
+- name: Start Docker
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Restart Docker
+  service:
+    name: docker
+    state: restarted

@@ -1,0 +1,46 @@
+---
+# Webserver Role - Install and configure Nginx
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install Nginx web server
+  apt:
+    name: nginx
+    state: present
+
+- name: Install additional utilities
+  apt:
+    name:
+      - curl
+      - git
+      - vim
+    state: present
+
+- name: Create web root directory
+  file:
+    path: /var/www/html/inventory
+    state: directory
+    mode: '0755'
+    owner: www-data
+    group: www-data
+
+- name: Deploy custom index.html
+  template:
+    src: index.html.j2
+    dest: /var/www/html/inventory/index.html
+    mode: '0644'
+    owner: www-data
+    group: www-data
+  notify: Restart Nginx
+
+- name: Ensure Nginx is running and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: yes
+
+- name: Display webserver info
+  debug:
+    msg: "Nginx installed and configured on {{ ansible_hostname }}"

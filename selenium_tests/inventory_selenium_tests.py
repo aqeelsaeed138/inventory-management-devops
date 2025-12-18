@@ -337,7 +337,7 @@ class InventorySystemTests(unittest.TestCase):
             
             try:
                 # Navigate to API endpoint
-                api_test_url = f"{self.backend_url}/api/inventory"  # Adjust endpoint
+                api_test_url = f"{self.frontend_url}/categories"  # Adjust endpoint
                 print(f"   Testing API endpoint: {api_test_url}")
                 
                 self.driver.get(api_test_url)

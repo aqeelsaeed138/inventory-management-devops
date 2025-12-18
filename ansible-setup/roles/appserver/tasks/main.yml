@@ -1,0 +1,92 @@
+---
+# Appserver Role - Install Node.js, Docker, and dependencies
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install prerequisite packages
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - software-properties-common
+    state: present
+
+- name: Add Docker GPG key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+    state: present
+
+- name: Install Docker
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    state: present
+    update_cache: yes
+  notify: Start Docker
+
+- name: Add ansible user to docker group
+  user:
+    name: ansible
+    groups: docker
+    append: yes
+
+- name: Install Node.js and npm
+  apt:
+    name:
+      - nodejs
+      - npm
+    state: present
+
+- name: Install Python3 pip packages
+  apt:
+    name:
+      - python3-pip
+      - python3-dev
+    state: present
+
+- name: Install Docker Python SDK
+  pip:
+    name: docker
+    state: present
+
+- name: Create application directory
+  file:
+    path: /opt/inventory-app
+    state: directory
+    mode: '0755'
+    owner: ansible
+    group: ansible
+
+- name: Display appserver info
+  debug:
+    msg: "Application server configured on {{ ansible_hostname }} with Docker and Node.js"
+
+- name: Verify Docker installation
+  command: docker --version
+  register: docker_version
+  changed_when: false
+
+- name: Display Docker version
+  debug:
+    var: docker_version.stdout
+
+- name: Verify Node.js installation
+  command: node --version
+  register: node_version
+  changed_when: false
+
+- name: Display Node.js version
+  debug:
+    var: node_version.stdout

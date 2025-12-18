@@ -1,0 +1,47 @@
+---
+# Main Playbook for DevOps Final Exam - Section D
+# Configuration Management using Ansible
+# This playbook configures two server types: webservers and appservers
+
+- name: "Section D: Configure Web Servers"
+  hosts: webservers
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Display target server information
+      debug:
+        msg: "Configuring webserver: {{ inventory_hostname }}"
+    
+    - name: Apply webserver role
+      include_role:
+        name: webserver
+
+- name: "Section D: Configure Application Servers"
+  hosts: appservers
+  become: yes
+  gather_facts: yes
+  
+  tasks:
+    - name: Display target server information
+      debug:
+        msg: "Configuring appserver: {{ inventory_hostname }}"
+    
+    - name: Apply appserver role
+      include_role:
+        name: appserver
+
+- name: "Section D: Deployment Summary"
+  hosts: all
+  gather_facts: no
+  
+  tasks:
+    - name: Display success message
+      debug:
+        msg: |
+          ════════════════════════════════════════════════
+          ✅ ANSIBLE CONFIGURATION COMPLETED SUCCESSFULLY
+          ════════════════════════════════════════════════
+          Server: {{ inventory_hostname }}
+          Groups: {{ group_names }}
+          ════════════════════════════════════════════════

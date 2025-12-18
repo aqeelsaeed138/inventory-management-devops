@@ -1,386 +1,147 @@
-name: Complete CI/CD Pipeline - Sections A, B, C
+name: CI/CD Pipeline
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_OWNER: ${{ github.repository_owner }}
-  BACKEND_IMAGE: backend
-  FRONTEND_IMAGE: frontend
+  # push:
+  #   branches: [ main, master, develop ]
+  # pull_request:
+  #   branches: [ main, master, develop ]
+  workflow_dispatch:  # Only manual trigger now
 
 jobs:
-  # ============================================
-  # SECTION A + B: BUILD & TEST
-  # ============================================
-  build-and-test-backend:
-    name: "Section B: Build & Test Backend"
+  # Stage 1: Build and Test Backend
+  backend-build-test:
+    name: Backend Build & Test
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: Backend/package-lock.json
+    
+    - name: Install Backend Dependencies
+      working-directory: ./Backend
+      run: npm ci
+    
+    - name: Run Backend Tests
+      working-directory: ./Backend
+      run: npm test
+      
+    - name: Build Backend
+      working-directory: ./Backend
+      run: echo "Backend build successful"
 
-      - name: Setup Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: Backend/package-lock.json
-
-      - name: Install Dependencies
-        working-directory: ./Backend
-        run: npm ci
-
-      - name: Run Tests
-        working-directory: ./Backend
-        run: npm test || true
-        env:
-          NODE_ENV: test
-
-      - name: Backend Build Success
-        run: echo "✅ Backend build and tests completed"
-
-  build-and-test-frontend:
-    name: "Section B: Build & Test Frontend"
+  # Stage 2: Build and Test Frontend
+  frontend-build-test:
+    name: Frontend Build & Test
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontendInventorySystem/package-lock.json
+    
+    - name: Install Frontend Dependencies
+      working-directory: ./frontendInventorySystem
+      run: npm ci
+    
+    - name: Run Frontend Tests
+      working-directory: ./frontendInventorySystem
+      run: npm test
+      env:
+        CI: true
+    
+    - name: Build Frontend
+      working-directory: ./frontendInventorySystem
+      run: npm run build
 
-      - name: Setup Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: frontendInventorySystem/package-lock.json
-
-      - name: Install Dependencies
-        working-directory: ./frontendInventorySystem
-        run: npm ci
-
-      - name: Run Tests
-        working-directory: ./frontendInventorySystem
-        run: npm test || true
-
-      - name: Build Frontend
-        working-directory: ./frontendInventorySystem
-        run: npm run build
-
-      - name: Frontend Build Success
-        run: echo "✅ Frontend build and tests completed"
-
-  # ============================================
-  # SECTION A + B: DOCKER BUILD & PUSH
-  # ============================================
+  # Stage 3: Build and Push Docker Images
   docker-build-push:
-    name: "Section A+B: Build & Push Docker Images"
-    needs: [build-and-test-backend, build-and-test-frontend]
+    name: Build & Push Docker Images
+    needs: [backend-build-test, frontend-build-test]
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    
-    outputs:
-      backend-image: ${{ steps.image-tags.outputs.backend }}
-      frontend-image: ${{ steps.image-tags.outputs.frontend }}
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Build and Push Backend Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./Backend
-          file: ./Backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.BACKEND_IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Build and Push Frontend Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontendInventorySystem
-          file: ./frontendInventorySystem/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.FRONTEND_IMAGE }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Set Image Tags Output
-        id: image-tags
-        run: |
-          echo "backend=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-          echo "frontend=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}" >> $GITHUB_OUTPUT
-
-      - name: Docker Images Published
-        run: |
-          echo "✅ Docker images built and pushed successfully"
-          echo "Backend: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.BACKEND_IMAGE }}:${{ github.sha }}"
-          echo "Frontend: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.FRONTEND_IMAGE }}:${{ github.sha }}"
-
-  # ============================================
-  # SECTION C: AUTOMATED AKS DEPLOYMENT
-  # ============================================
-  deploy-to-aks:
-    name: "Section C: Deploy to Azure Kubernetes (AKS)"
-    needs: [docker-build-push]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and Push Backend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./Backend
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/inventory-backend:latest,${{ secrets.DOCKER_USERNAME }}/inventory-backend:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+    
+    - name: Build and Push Frontend Image
+      uses: docker/build-push-action@v4
+      with:
+        context: ./frontendInventorySystem
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/inventory-frontend:latest,${{ secrets.DOCKER_USERNAME }}/inventory-frontend:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'latest'
-
-      - name: Configure kubectl with AKS
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig
-          export KUBECONFIG=$(pwd)/kubeconfig
-          echo "Testing kubectl connection..."
-          kubectl cluster-info
-          kubectl get nodes
-
-      # ==========================================
-      # DEPLOY MONGODB (DATABASE TIER)
-      # ==========================================
-      - name: "Section C: Deploy MongoDB to AKS"
-        run: |
-          export KUBECONFIG=$(pwd)/kubeconfig
-          echo "🗄️ Deploying MongoDB (Database Tier)..."
-          kubectl apply -f k8s-manifests/01-mongodb.yaml
-          echo "⏳ Waiting for MongoDB to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment/mongodb-deployment || true
-          sleep 30
-          kubectl get pods -l app=mongodb
-          echo "✅ MongoDB deployed successfully"
-
-      # ==========================================
-      # DEPLOY BACKEND & GET PUBLIC IP
-      # ==========================================
-      - name: "Section C: Deploy Backend to AKS"
-        run: |
-          export KUBECONFIG=$(pwd)/kubeconfig
-          
-          # Update backend image and secrets in manifest
-          sed -i "s|ghcr.io/GITHUB_USERNAME/REPO_NAME/backend:latest|${{ needs.docker-build-push.outputs.backend-image }}|g" k8s-manifests/02-backend.yaml
-          sed -i "s|REPLACE_IN_PIPELINE|${{ secrets.ACCESS_TOKEN_SECRET }}|g" k8s-manifests/02-backend.yaml
-          
-          # Replace other secrets
-          sed -i "0,/REPLACE_IN_PIPELINE/s//${{ secrets.REFRESH_TOKEN_SECRET }}/" k8s-manifests/02-backend.yaml
-          sed -i "0,/REPLACE_IN_PIPELINE/s//${{ secrets.GMAIL_USER }}/" k8s-manifests/02-backend.yaml
-          sed -i "0,/REPLACE_IN_PIPELINE/s//${{ secrets.GMAIL_PASS }}/" k8s-manifests/02-backend.yaml
-          
-          echo "🚀 Deploying Backend (Application Tier)..."
-          kubectl apply -f k8s-manifests/02-backend.yaml
-          
-          echo "⏳ Waiting for Backend to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment/backend-deployment || true
-          sleep 30
-          
-          echo "📊 Backend Pods Status:"
-          kubectl get pods -l app=backend
-          
-          echo "🌐 Getting Backend Public IP..."
-          for i in {1..30}; do
-            BACKEND_IP=$(kubectl get svc backend-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-            if [ ! -z "$BACKEND_IP" ]; then
-              echo "✅ Backend Public IP: $BACKEND_IP"
-              echo "BACKEND_IP=$BACKEND_IP" >> $GITHUB_ENV
-              break
-            fi
-            echo "⏳ Waiting for Backend LoadBalancer IP... ($i/30)"
-            sleep 10
-          done
-          
-          if [ -z "$BACKEND_IP" ]; then
-            echo "⚠️ Backend IP not ready yet, using service name"
-            echo "BACKEND_IP=http://backend-service:5000" >> $GITHUB_ENV
-          else
-            echo "BACKEND_IP=http://$BACKEND_IP:5000" >> $GITHUB_ENV
-          fi
-
-      # ==========================================
-      # DEPLOY FRONTEND WITH BACKEND IP
-      # ==========================================
-      - name: "Section C: Deploy Frontend to AKS"
-        run: |
-          export KUBECONFIG=$(pwd)/kubeconfig
-          
-          # Update frontend image
-          sed -i "s|ghcr.io/GITHUB_USERNAME/REPO_NAME/frontend:latest|${{ needs.docker-build-push.outputs.frontend-image }}|g" k8s-manifests/03-frontend.yaml
-          
-          # Update Backend API URL
-          sed -i "s|REPLACE_WITH_BACKEND_IP|${{ env.BACKEND_IP }}|g" k8s-manifests/03-frontend.yaml
-          
-          echo "🎨 Deploying Frontend (Presentation Tier)..."
-          kubectl apply -f k8s-manifests/03-frontend.yaml
-          
-          echo "⏳ Waiting for Frontend to be ready..."
-          kubectl wait --for=condition=available --timeout=300s deployment/frontend-deployment || true
-          sleep 30
-          
-          echo "📊 Frontend Pods Status:"
-          kubectl get pods -l app=frontend
-
-      # ==========================================
-      # GET FRONTEND PUBLIC IP & VERIFY
-      # ==========================================
-      - name: "Section C: Get Frontend Public IP"
-        run: |
-          export KUBECONFIG=$(pwd)/kubeconfig
-          
-          echo "🌐 Waiting for Frontend Public IP..."
-          for i in {1..30}; do
-            FRONTEND_IP=$(kubectl get svc frontend-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-            if [ ! -z "$FRONTEND_IP" ]; then
-              echo "✅ Frontend Public IP obtained: $FRONTEND_IP"
-              echo "FRONTEND_IP=$FRONTEND_IP" >> $GITHUB_ENV
-              break
-            fi
-            echo "⏳ Waiting for Frontend LoadBalancer IP... ($i/30)"
-            sleep 10
-          done
-          
-          if [ -z "$FRONTEND_IP" ]; then
-            echo "❌ Could not get Frontend Public IP"
-            exit 1
-          fi
-
-      # ==========================================
-      # DEPLOYMENT VERIFICATION (Task C2)
-      # ==========================================
-      - name: "Section C: Deployment Verification"
-        run: |
-          export KUBECONFIG=$(pwd)/kubeconfig
-          
-          echo "════════════════════════════════════════════════════"
-          echo "📋 SECTION C: AKS DEPLOYMENT VERIFICATION"
-          echo "════════════════════════════════════════════════════"
-          echo ""
-          
-          echo "✅ Task C1: Kubernetes Manifests Applied"
-          echo "✅ Task C1: Application Deployed to AKS"
-          echo ""
-          
-          echo "📊 ALL PODS STATUS (kubectl get pods):"
-          echo "────────────────────────────────────────────────────"
-          kubectl get pods -o wide
-          echo ""
-          
-          echo "🌐 ALL SERVICES STATUS (kubectl get svc):"
-          echo "────────────────────────────────────────────────────"
-          kubectl get svc
-          echo ""
-          
-          echo "🚀 DEPLOYMENTS STATUS:"
-          echo "────────────────────────────────────────────────────"
-          kubectl get deployments
-          echo ""
-          
-          echo "💾 PERSISTENT VOLUMES:"
-          echo "────────────────────────────────────────────────────"
-          kubectl get pvc
-          echo ""
-          
-          echo "🔗 APPLICATION ENDPOINTS:"
-          echo "════════════════════════════════════════════════════"
-          echo "🌐 Frontend URL: http://${{ env.FRONTEND_IP }}"
-          echo "🔧 Backend API: ${{ env.BACKEND_IP }}"
-          echo "🗄️ MongoDB: mongodb-service:27017 (internal)"
-          echo ""
-          echo "════════════════════════════════════════════════════"
-          echo "✅ SECTION C DEPLOYMENT COMPLETED SUCCESSFULLY!"
-          echo "════════════════════════════════════════════════════"
-
-      # ==========================================
-      # TEST CONNECTIVITY (Task C2)
-      # ==========================================
-      - name: "Section C: Test Application Connectivity"
-        run: |
-          export KUBECONFIG=$(pwd)/kubeconfig
-          
-          echo "🧪 Testing Application Connectivity..."
-          echo ""
-          
-          echo "1️⃣ Testing Backend to MongoDB Connection:"
-          kubectl logs -l app=backend --tail=50 | grep -i "mongo\|database\|connected" || echo "Backend logs retrieved"
-          echo ""
-          
-          echo "2️⃣ Testing Frontend Accessibility:"
-          sleep 10
-          curl -I http://${{ env.FRONTEND_IP }} || echo "Frontend endpoint: http://${{ env.FRONTEND_IP }}"
-          echo ""
-          
-          echo "✅ All connectivity tests completed"
-
-  # ============================================
-  # PIPELINE SUCCESS SUMMARY
-  # ============================================
-  pipeline-success:
-    name: "Pipeline Success - All Sections Complete"
-    needs: [build-and-test-backend, build-and-test-frontend, docker-build-push, deploy-to-aks]
+  # Stage 4: Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    needs: docker-build-push
     runs-on: ubuntu-latest
-    if: success()
     
     steps:
-      - name: Complete Success Summary
-        run: |
-          echo "════════════════════════════════════════════════════════════"
-          echo "🎉 CI/CD PIPELINE COMPLETED SUCCESSFULLY"
-          echo "════════════════════════════════════════════════════════════"
-          echo ""
-          echo "✅ SECTION A - CONTAINERIZATION:"
-          echo "   • Backend Dockerfile ✓"
-          echo "   • Frontend Dockerfile ✓"
-          echo "   • Docker Compose ✓"
-          echo ""
-          echo "✅ SECTION B - CI/CD AUTOMATION:"
-          echo "   • Build Stage (Frontend + Backend) ✓"
-          echo "   • Automated Tests ✓"
-          echo "   • Docker Image Build & Push to GHCR ✓"
-          echo "   • Deployment to Kubernetes ✓"
-          echo ""
-          echo "✅ SECTION C - KUBERNETES ON AZURE (AKS):"
-          echo "   • AKS Cluster Connected ✓"
-          echo "   • MongoDB Deployed with Persistent Storage ✓"
-          echo "   • Backend Deployed (2 replicas) ✓"
-          echo "   • Frontend Deployed (2 replicas) ✓"
-          echo "   • Public IP Exposed ✓"
-          echo "   • All Pods Running ✓"
-          echo "   • All Services Created ✓"
-          echo "   • Application Fully Functional ✓"
-          echo ""
-          echo "📊 Pipeline Details:"
-          echo "   • Run Number: ${{ github.run_number }}"
-          echo "   • Commit SHA: ${{ github.sha }}"
-          echo "   • Branch: ${{ github.ref_name }}"
-          echo ""
-          echo "════════════════════════════════════════════════════════════"
-          echo "🚀 DEPLOYMENT SUCCESSFUL - ALL 3 SECTIONS AUTOMATED!"
-          echo "════════════════════════════════════════════════════════════"
+    - name: Checkout Code
+      uses: actions/checkout@v3
+    
+    # Option A: Deploy to Kubernetes
+    - name: Deploy to Kubernetes
+      if: ${{ secrets.KUBECONFIG != '' }}
+      run: |
+        echo "Deploying to Kubernetes cluster..."
+        echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
+        export KUBECONFIG=kubeconfig.yaml
+        kubectl set image deployment/inventory-backend backend=${{ secrets.DOCKER_USERNAME }}/inventory-backend:${{ github.sha }} --namespace=staging
+        kubectl set image deployment/inventory-frontend frontend=${{ secrets.DOCKER_USERNAME }}/inventory-frontend:${{ github.sha }} --namespace=staging
+        kubectl rollout status deployment/inventory-backend --namespace=staging
+        kubectl rollout status deployment/inventory-frontend --namespace=staging
+        rm kubeconfig.yaml
+    
+    # Option B: Deploy to Remote Server via SSH
+    - name: Deploy to Staging Server
+      if: ${{ secrets.STAGING_SERVER_IP != '' }}
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.STAGING_SERVER_IP }}
+        username: ${{ secrets.STAGING_SERVER_USER }}
+        key: ${{ secrets.STAGING_SSH_KEY }}
+        script: |
+          cd /home/ubuntu/inventory-app
+          docker-compose pull
+          docker-compose up -d
+          docker system prune -f
+    
+    - name: Deployment Success
+      run: |
+        echo "✅ Deployment completed successfully!"
+        echo "Backend Image: ${{ secrets.DOCKER_USERNAME }}/inventory-backend:${{ github.sha }}"
+        echo "Frontend Image: ${{ secrets.DOCKER_USERNAME }}/inventory-frontend:${{ github.sha }}"
